@@ -15,7 +15,16 @@ SSS~YSSY      YSSP~YSSY    SSS     S*S  YSS'    S*S         S*S    SSS  SSS    S
                                    Y            Y           Y                  Y      Y              Y
 ```
 
-A generic DOM-based password sprayer
+A generic DOM-based password sprayer.
+
+## Introduction
+
+This tool relies on Selenium to automate password spraying attacks.
+
+As this tool is intended to be used in generic situtations, it is expected that the target presents a form containing a
+**username field**, a **password field** and a **submit button**. These elements should be identified in their respective command line options.
+
+In case your target implements a different authentication logic, you could easily adapt the tool to fit your needs.
 
 ## Getting Started
 
