@@ -173,7 +173,7 @@ class BrowserEngine:
 
 # Class for chrome browser
 class ChromeBrowserEngine(BrowserEngine):
-    driver_path = ChromeDriverManager(log_level=0).install()
+    driver_path = Chrome()
 
     def __init__(self, wait=5, proxy=None, headless=False, random_ua=False):
         self.options = ChromeOptions()
@@ -187,8 +187,9 @@ class ChromeBrowserEngine(BrowserEngine):
             '--user-agent=""Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
             'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.157 Safari/537.36""'
         )
-        self.options.accept_untrusted_certs = True
-        self.options.headless = headless
+        # TODO: fix this
+        # self.options.accept_untrusted_certs = True
+        # self.options.headless = headless
         self.set_proxy(proxy)
         prefs = {
             "profile.managed_default_content_settings.images": 1,
@@ -203,9 +204,7 @@ class ChromeBrowserEngine(BrowserEngine):
         }
         self.options.add_experimental_option("prefs", prefs)
 
-        self.driver = Chrome(
-            options=self.options, service=ChromeService(self.driver_path)
-        )
+        self.driver = self.driver_path
         self.driver.set_window_position(0, 0)
         self.driver.set_window_size(1024, 768)
         if random_ua:
@@ -223,7 +222,7 @@ class ChromeBrowserEngine(BrowserEngine):
 
 # Class for firefox browser
 class FirefoxBrowserEngine(BrowserEngine):
-    driver_path = GeckoDriverManager(log_level=0).install()
+    driver_path = GeckoDriverManager().install()
 
     def __init__(self, wait=5, proxy=None, headless=False, random_ua=False):
         self.set_proxy(proxy)  # this should be at the top to make effect
@@ -421,7 +420,7 @@ def spray(args, username_list, password_list):
                 )
                 continue
             browser.populate_element(username_field, username)
-            
+
             # Populate the password field
             passwd_type, passwd_value = args.pf.split(":", 1)
             passwd_field = browser.find_element(passwd_type, passwd_value)
@@ -449,7 +448,7 @@ def spray(args, username_list, password_list):
 
 
             # Check for invalid password (i.e. returned to login page)
-            if (browser.find_element(username_type, username_value) 
+            if (browser.find_element(username_type, username_value)
                 and browser.find_element(passwd_type, passwd_value)):
                 print(
                     "%s[Invalid Creds] %s:%s%s"
@@ -497,7 +496,7 @@ def banner(args):
         "                                   SP           SP          SP                 SP     SP             SP          \n"
         "                                   Y            Y           Y                  Y      Y              Y           \n"
         "                                                                                                                 \n"
-                                                                                                                 
+
     )
 
     _args = vars(args)
