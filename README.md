@@ -19,7 +19,7 @@ A generic DOM-based password sprayer.
 
 ## Introduction
 
-This tool relies on Selenium to automate password spraying attacks.
+This tool relies on Puppeteer to automate password spraying attacks.
 
 As this tool is intended to be used in generic situtations, it is expected that the target presents a form containing a
 **username field**, a **password field** and a **submit button**. These elements should be identified in their respective command line options.
@@ -39,16 +39,10 @@ First, clone the repository
 git clone https://github.com/yok4i/domsprayer.git
 ```
 
-Once inside it, run `poetry` to install the dependencies
+Once inside it, run `yarn` to install the dependencies
 
 ```
-poetry install
-```
-
-Alternatively, you can install them with `pip`
-
-```
-pip install -r requirements.txt
+yarn install
 ```
 
 ### Help
@@ -56,80 +50,60 @@ pip install -r requirements.txt
 Use `-h` to show the help menu
 
 ```
-poetry run ./domprayer.py -h
+node domsprayer.js -h
+Usage: domsprayer [options]
 
-usage: domsprayer.py [-h] -t TARGET [-d {chrome,firefox}] (-u USERNAME | -U FILE) (-p PASSWORD | -P FILE)
-                     [-o OUTPUT] [-r N] [-x PROXY] [--sleep SLEEP] [--wait WAIT] [--jitter JITTER]
-                     --lockout LOCKOUT [--frame TYPE:VALUE] [--uf TYPE:VALUE] [--pf TYPE:VALUE]
-                     [--bt TYPE:VALUE] [--slack SLACK] [-H] [-s] [--rua] [-v]
+A generic DOM-based password sprayer
 
-Generic DOM-based Password Sprayer.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -t TARGET, --target TARGET
-                        Target URL (required)
-  -d {chrome,firefox}, --driver {chrome,firefox}
-                        Webdriver to be used (default: firefox)
-  -u USERNAME, --username USERNAME
-                        Single username
-  -U FILE, --usernames FILE
-                        File containing usernames
-  -p PASSWORD, --password PASSWORD
-                        Single password
-  -P FILE, --passwords FILE
-                        File containing passwords
-  -o OUTPUT, --output OUTPUT
-                        Output file (default: valid_creds.txt)
-  -r N, --reset-after N
-                        Reset browser after N attempts (default: 1)
-  -x PROXY, --proxy PROXY
-                        Proxy to pass traffic through: <scheme://ip:port>
-  --sleep SLEEP         Sleep time (in seconds) between each iteration (default: 0)
-  --wait WAIT           Time to wait (in seconds) when looking for DOM elements (default: 3)
-  --jitter JITTER       Max jitter (in seconds) to be added to wait time (default: 0)
-  --lockout LOCKOUT     Lockout policy reset time (in minutes) (required)
-  --frame TYPE:VALUE    Frame containing login form in the form of TYPE:VALUE (default: None)
-  --uf TYPE:VALUE       Username field in the form of TYPE:VALUE (default: ID:user_email)
-  --pf TYPE:VALUE       Password field in the form of TYPE:VALUE (default: ID:user_password)
-  --bt TYPE:VALUE       Submit button in the form of TYPE:VALUE (default: ID:submit-button)
-  --slack SLACK         Slack webhook for sending notifications (default: None)
-  -H, --headless        Run in headless mode
-  -s, --shuffle         Shuffle user list
-  --rua                 Use random user-agent
-  -v, --verbose         Verbose output
+Options:
+  -V, --version                     output the version number
+  -t, --target <url>                Target URL
+  -uf, --username-field <selector>  Username field selector
+  -pf, --password-field <selector>  Password field selector
+  -lf, --login-button <selector>    Login button selector
+  -u, --usernames <file>            Path to the usernames file
+  -p, --passwords <file>            Path to the passwords file
+  -w, --wait-time <ms>              Minimum time to wait for page to load in milliseconds (default: 1000)
+  -i, --interval <ms>               Interval between login attempts in milliseconds (default: 0)
+  -H, --headless                    Run in headless mode (default: false)
+  -k, --api-key <key>               2Captcha API key
+  -c, --captcha-before              Solve captcha before clicking the login button (default: false)
+  -C, --captcha-after               Solve captcha after clicking the login button (default: false)
+  --captcha-frames                  Search for captcha in child frames (default: false)
+  -s, --slack-webhook <url>         Slack webhook URL
+  -o, --output <outputFile>         Specify the output file name (default: "valid_creds.txt")
+  --test                            Test bot detection and take screenshot of the results (default: false)
+  --demo                            Run in demo mode (do not output passwords to the screen) (default: false)
+  --typing-delay <ms>               Delay for typing in milliseconds (default: 100)
+  -S, --screenshot                  Take screenshot on successful login or on unexpected behaviour (default: false)
+  -d, --directory <dir>             Directory to save screenshots when using -S (default: "screenshots")
+  -h, --help                        display help for command
 ```
 
 
 ## Examples
 
-Perform password spraying using a proxy and waiting 30 minutes between each password iteration
+Perform password spraying with auto-captcha, when captcha is shown after
+clicking the submit button.
 
 ```
-poetry run ./domprayer.py -r 1 -U emails.txt -P passwords.txt --proxy 127.0.0.1:9050 --lockout 30
+node domsprayer.js -t https://contoso.com/login -u users.txt -p passwords.txt -uf 'input[id="username"]' -pf 'input[id="password"]' -lf 'button[id="btnSubmit"]' -S -k 123abcdef123abcdef -C
 ```
 
 ### Note
 
-If you are using a proxy with a protocol other than HTTP, you should specify the schema like `socks5://127.0.0.1:9050`.
-
-The options `--uf`, `--pf`, `--bt` and `--frame` must use a `TYPE` supported by Selenium.
-These are attributes available for `By` class, as decribed [here](https://selenium-python.readthedocs.io/locating-elements.html).
+The options `-uf`, `-pf` and `-lf` should be defined as CSS selectors.
+For reference, you can use [this guide](https://www.w3schools.com/cssref/css_selectors.php).
 
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/yok4i/domsprayer/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/y0k4i-1337/domsprayer/tags).
 
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
-
-
-## Acknowledgments
-
-* This project was heavily inspired by [0xZDH/msspray](https://github.com/0xZDH/msspray)
 
 
 ## Disclaimer
