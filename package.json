@@ -1,6 +1,6 @@
 {
   "name": "domsprayer",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "A generic DOM-based password sprayer",
   "main": "domsprayer.js",
   "repository": "git@github.com:y0k4i-1337/domsprayer",
