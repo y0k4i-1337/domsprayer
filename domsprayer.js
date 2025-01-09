@@ -21,14 +21,14 @@ program
         "Mode of operation (clusterbomb|pitchfork)",
         "clusterbomb"
     )
-    .option("-uf, --username-field <selector>", "Username field selector")
-    .option("-pf, --password-field <selector>", "Password field selector")
-    .option("-lf, --login-button <selector>", "Login button selector")
-    .option("-u, --usernames <file>", "Path to the usernames file")
-    .option("-p, --passwords <file>", "Path to the passwords file")
+    .option("-u, --username-field <selector>", "Username field selector")
+    .option("-p, --password-field <selector>", "Password field selector")
+    .option("-l, --login-button <selector>", "Login button selector")
+    .option("-U, --usernames <file>", "Path to the usernames file")
+    .option("-P, --passwords <file>", "Path to the passwords file")
     .option(
         "-w, --wait-time <ms>",
-        "Minimum time to wait for page to load in milliseconds",
+        "Wait time for network idle in milliseconds",
         1000,
         parseInt
     )

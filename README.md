@@ -56,28 +56,29 @@ Usage: domsprayer [options]
 A generic DOM-based password sprayer
 
 Options:
-  -V, --version                     output the version number
-  -t, --target <url>                Target URL
-  -uf, --username-field <selector>  Username field selector
-  -pf, --password-field <selector>  Password field selector
-  -lf, --login-button <selector>    Login button selector
-  -u, --usernames <file>            Path to the usernames file
-  -p, --passwords <file>            Path to the passwords file
-  -w, --wait-time <ms>              Minimum time to wait for page to load in milliseconds (default: 1000)
-  -i, --interval <ms>               Interval between login attempts in milliseconds (default: 0)
-  -H, --headless                    Run in headless mode (default: false)
-  -k, --api-key <key>               2Captcha API key
-  -c, --captcha-before              Solve captcha before clicking the login button (default: false)
-  -C, --captcha-after               Solve captcha after clicking the login button (default: false)
-  --captcha-frames                  Search for captcha in child frames (default: false)
-  -s, --slack-webhook <url>         Slack webhook URL
-  -o, --output <outputFile>         Specify the output file name (default: "valid_creds.txt")
-  --test                            Test bot detection and take screenshot of the results (default: false)
-  --demo                            Run in demo mode (do not output passwords to the screen) (default: false)
-  --typing-delay <ms>               Delay for typing in milliseconds (default: 100)
-  -S, --screenshot                  Take screenshot on successful login or on unexpected behaviour (default: false)
-  -d, --directory <dir>             Directory to save screenshots when using -S (default: "screenshots")
-  -h, --help                        display help for command
+  -V, --version                    output the version number
+  -t, --target <url>               Target URL
+  -m, --mode <mode>                Mode of operation (clusterbomb|pitchfork) (default: "clusterbomb")
+  -u, --username-field <selector>  Username field selector
+  -p, --password-field <selector>  Password field selector
+  -l, --login-button <selector>    Login button selector
+  -U, --usernames <file>           Path to the usernames file
+  -P, --passwords <file>           Path to the passwords file
+  -w, --wait-time <ms>             Wait time for network idle in milliseconds (default: 1000)
+  -i, --interval <ms>              Interval between login attempts in milliseconds (default: 0)
+  -H, --headless                   Run in headless mode (default: false)
+  -k, --api-key <key>              2Captcha API key
+  -c, --captcha-before             Solve captcha before clicking the login button (default: false)
+  -C, --captcha-after              Solve captcha after clicking the login button (default: false)
+  --captcha-frames                 Search for captcha in child frames (default: false)
+  -s, --slack-webhook <url>        Slack webhook URL
+  -o, --output <outputFile>        Specify the output file name (default: "valid_creds.txt")
+  --test                           Test bot detection and take screenshot of the results (default: false)
+  --demo                           Run in demo mode (do not output passwords to the screen) (default: false)
+  --typing-delay <ms>              Delay for typing in milliseconds (default: 100)
+  -S, --screenshot                 Take screenshot on successful login or on unexpected behaviour (default: false)
+  -d, --directory <dir>            Directory to save screenshots when using -S (default: "screenshots")
+  -h, --help                       display help for command
 ```
 
 
@@ -87,13 +88,16 @@ Perform password spraying with auto-captcha, when captcha is shown after
 clicking the submit button.
 
 ```
-node domsprayer.js -t https://contoso.com/login -u users.txt -p passwords.txt -uf 'input[id="username"]' -pf 'input[id="password"]' -lf 'button[id="btnSubmit"]' -S -k 123abcdef123abcdef -C
+node domsprayer.js -t https://contoso.com/login -U users.txt -P passwords.txt -u 'input[id="username"]' -p 'input[id="password"]' -l 'button[id="btnSubmit"]' -S -k 123abcdef123abcdef -C
 ```
 
 ### Note
 
-The options `-uf`, `-pf` and `-lf` should be defined as CSS selectors.
-For reference, you can use [this guide](https://www.w3schools.com/cssref/css_selectors.php).
+The options `-u`, `-p` and `-l` should be defined as CSS selectors.
+For reference, you can use [this
+guide](https://www.w3schools.com/cssref/css_selectors.php).
+
+The operation mode option uses the same nomenclature as Burp Intruder. See [here](https://portswigger.net/burp/documentation/desktop/tools/intruder/configure-attack/attack-types) for more information.
 
 
 ## Versioning
