@@ -7,7 +7,7 @@
   "author": "Mayk <7395296+y0k4i-1337@users.noreply.github.com>",
   "license": "MIT",
   "dependencies": {
-    "@slack/webhook": "~7.0.3",
+    "@slack/webhook": "~7.0.5",
     "chalk": "~4.1.2",
     "commander": "^13.0.0",
     "log-timestamp": "^0.3.0",
