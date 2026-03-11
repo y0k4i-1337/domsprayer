@@ -113,3 +113,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Disclaimer
 
 This tool is intended for educational purpose or for use in environments where you have been given explicit/legal authorization to do so.
+
+## :coffee: Support ##
+
+<p><a href="https://www.buymeacoffee.com/y0k4i"> <img align="left" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" width="210" alt="y0k4i" /></a></p><br><br>
+
+&#xa0;
+
+Made with :green_heart: by <a href="https://github.com/y0k4i-1337" target="_blank">y0k4i</a>
