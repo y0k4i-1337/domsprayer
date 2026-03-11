@@ -189,7 +189,7 @@ async function solveCaptcha(page, options) {
     }
 }
 
-async function process_result(isLoginSuccessful, username, password, options) {
+async function process_result(page, isLoginSuccessful, username, password, options) {
     if (isLoginSuccessful) {
         fs.appendFileSync(options.output, `${username}:${password}\n`);
 
@@ -217,9 +217,9 @@ async function process_result(isLoginSuccessful, username, password, options) {
                     fullPage: true,
                 });
                 console.log(chalk.blue("Screenshot saved to ", scr_path));
-            } catch {
+            } catch (error) {
                 console.error(
-                    chalk.red("Could not save screenshot to ", scr_path)
+                    chalk.red("Could not save screenshot to ", scr_path, ":", error),
                 );
             }
         }
@@ -331,7 +331,7 @@ async function login(browser, username, password, options) {
 
         // Check if login was successful
         isLoginSuccessful = await checkLoginSuccess(page, options);
-        await process_result(isLoginSuccessful, username, password, options);
+        await process_result(page, isLoginSuccessful, username, password, options);
     } catch (error) {
         fs.appendFileSync("incomplete_reqs.txt", `${username}:${password}\n`);
         console.error(chalk.red(`An error occurred: ${error}`));
@@ -341,6 +341,9 @@ async function login(browser, username, password, options) {
         await client.send("Network.clearBrowserCookies");
         await client.send("Network.clearBrowserCache");
     }
+
+    await page.reload({ waitUntil: ["networkidle0", "domcontentloaded"] });
+
     return isLoginSuccessful;
 }
 
